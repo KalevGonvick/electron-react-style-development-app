@@ -11,9 +11,12 @@
  * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
+ body {
+	 background: #293540;
+ }
 
 .RichEditor-root {
-  background: #fff;
+  background: #293540;
   border: 1px solid #ddd;
   font-family: 'Georgia', serif;
   font-size: 14px;
@@ -65,13 +68,55 @@
 }
 
 .RichEditor-styleButton {
-  color: #999;
+  color: whitesmoke;
   cursor: pointer;
-  margin-right: 16px;
-  padding: 2px 0;
-  display: inline-block;
+  margin-right: 3px;
+	background: #526B80;
+	border-radius: 2px;
+	padding-left: 3px;
+	padding-right: 3px;
+	padding-top: 2px;
+	padding-bottom: 2px;
 }
 
 .RichEditor-activeButton {
-  color: #5890ff;
+  background: #91CCE6;
+}
+
+.TextEditor-BlockStyles-root {
+	float: left;
+	width: auto;
+}
+
+.TextEditor-InlineStyles-root {
+	float: left;
+	width: auto;
+}
+
+.TextEditor-Toolbar-root {
+	background: #293540;
+	width: 100%;
+	z-index: 10;
+	top: 0px;
+	left: 0px;
+	margin-left: 3%;
+	margin-right: 3%;
+	margin-top: 2%;
+	margin-bottom: 3px;
+	display: inline-block;
+}
+
+.TextEditor-Page-root {
+	margin-left: 3%;
+	margin-right: 3%;
+	margin-bottom: 2%;
+	background: #E8E8E8;
+	min-height: 700px;
+	overflow: auto;
+	display: block;
+	border-radius: 2px;
+}
+
+.DraftEditor-root {
+	margin: 10px 10px 20px 20px;
 }

@@ -2,6 +2,7 @@ import React from 'react'
 import {Editor, EditorState, RichUtils, getDefaultKeyBinding} from 'draft-js'
 import 'draft-js/dist/Draft.css'
 import './RichEditor.css'
+import isElectron from 'is-electron'
 
 const styleMap = {
 	CODE: {
@@ -20,8 +21,8 @@ const BLOCK_TYPES = [
 	{label: 'H5', style: 'header-five'},
 	{label: 'H6', style: 'header-six'},
 	{label: 'Blockquote', style: 'blockquote'},
-	{label: 'UL', style: 'unordered-list-item'},
-	{label: 'OL', style: 'ordered-list-item'}
+	{label: 'Unordered-List', style: 'unordered-list-item'},
+	{label: 'Ordered-List', style: 'ordered-list-item'}
 ];
 
 const BlockStyleControls = (props) => {
@@ -115,6 +116,7 @@ class TextEditor extends React.Component {
 			 return false;
 		 }
 
+		 // TAB does not work currently
 		 _mapKeyToEditorCommand(e) {
 			 if (e.keyCode === 9 /* TAB */) {
 				 const newEditorState = RichUtils.onTab(
@@ -148,6 +150,19 @@ class TextEditor extends React.Component {
 			 );
 		 }
 
+		 componentDidMount() {
+
+			 /* Just some tests for ipcRenderer functions (electron API) */
+			 	if (isElectron()) {
+					//console.log(window.ipcRenderer.sendSync('synchronous-message', 'ping')) // prints "pong"
+					window.ipcRenderer.on('asynchronous-reply', (event, arg) => {
+  					console.log("client: " + arg) // prints "pong"
+						this.setState({ipc: true});
+					})
+					window.ipcRenderer.send('asynchronous-message', 'ping')
+				}
+			}
+
   render() {
 		var {editorState} = this.state;
 		function getBlockStyle(block) {
@@ -157,17 +172,23 @@ class TextEditor extends React.Component {
         }
       }
     return (
-			<div>
-				<BlockStyleControls
-          editorState={editorState}
-          onToggle={this.toggleBlockType}
-        />
-        <InlineStyleControls
-          editorState={editorState}
-          onToggle={this.toggleInlineStyle}
-        />
-				<div onClick={this.focus}>
-					<Editor
+			<div className="TextEditor-root">
+				<div className="TextEditor-Toolbar-root">
+					<div className="TextEditor-BlockStyles-root">
+						<BlockStyleControls
+							editorState={editorState}
+							onToggle={this.toggleBlockType}
+						/>
+					</div>
+					<div className="TextEditor-InlineStyles-root">
+						<InlineStyleControls
+							editorState={editorState}
+							onToggle={this.toggleInlineStyle}
+						/>
+					</div>
+					</div>
+					<div className="TextEditor-Page-root" onClick={this.focus}>
+						<Editor
 							blockStyleFn={getBlockStyle}
 							customStyleMap={styleMap}
 							editorState={editorState}
@@ -177,7 +198,7 @@ class TextEditor extends React.Component {
 							placeholder="Paste Your Text Here..."
 							ref="editor"
 							spellCheck={true}
-					/>
+						/>
 				</div>
 			</div>
     );
