@@ -99,22 +99,44 @@
 	z-index: 10;
 	top: 0px;
 	left: 0px;
-	margin-left: 3%;
-	margin-right: 3%;
 	margin-top: 2%;
 	margin-bottom: 3px;
 	display: inline-block;
 }
 
 .TextEditor-Page-root {
-	margin-left: 3%;
-	margin-right: 3%;
-	margin-bottom: 2%;
 	background: #E8E8E8;
 	min-height: 700px;
 	overflow: auto;
 	display: block;
 	border-radius: 2px;
+}
+
+.RichEditor-textoption {
+	color: whitesmoke;
+  cursor: pointer;
+  margin-right: 3px;
+	margin-top: 5px;
+	background: #526B80;
+	border-radius: 2px;
+	padding-left: 3px;
+	padding-right: 3px;
+	padding-top: 2px;
+	padding-bottom: 2px;
+}
+
+.RichEditor-textoption > span {
+	text-align: center;
+	align-content: center;
+	align-self: center;
+}
+
+.Side-controls {
+	padding: 1%;
+	margin-top: 3%;
+	top: 0;
+	left: 0;
+	display: inline-block;
 }
 
 .DraftEditor-root {

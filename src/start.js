@@ -30,28 +30,27 @@ function createWindow() {
   });
 }
 
-app.on('ready', createWindow)
+app.on('ready', createWindow);
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit()
   }
-})
-
-ipcMain.on('did-finish-load', ()=>{
-	ipcMain.send('asynchronous-message', 'pong')
 });
 
+/* setup listener for ipcCalls */
 ipcMain.on('asynchronous-message', (event, arg) => {
-	console.log("main process: " + arg)
-	event.reply('asynchronous-message', 'pong')
-	//event.returnValue = 'pong'
+	event.reply('asynchronous-reply', 'pong')
 });
 
-ipcMain.on('synchronous-message', (event, arg) => {
-  console.log(arg) // prints "ping"
-  event.returnValue = 'pong'
+ipcMain.on('diction-analysis', (event, arg) => {
+	console.log(arg);
 });
+
+ipcMain.on('pacing-analysis', (event, arg) => {
+	console.log(arg);
+});
+
 
 app.on('activate', () => {
   if (mainWindow === null) {

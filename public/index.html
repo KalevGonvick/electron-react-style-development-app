@@ -11,10 +11,25 @@
     />
     <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.png" />
     <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
+		<link href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.0.0-alpha/css/bootstrap.css" rel="stylesheet" />
+		<style>
+			.r-container {
+				position: absolute;
+				padding-right: 2%;
+				padding-bottom: 2%;
+				width: 100vw;
+				height: 100vh;
+				top: 0;
+				left: 0;
+				overflow-x: hidden;
+			}
+		</style>
     <title>Style Development</title>
   </head>
   <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>
-    <div id="root"></div>
+		<div class="r-container">
+    	<div id="root"></div>
+		</div>
   </body>
 </html>

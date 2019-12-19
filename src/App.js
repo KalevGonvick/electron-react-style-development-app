@@ -1,5 +1,5 @@
 import React from 'react'
-import {Editor, EditorState, RichUtils, getDefaultKeyBinding} from 'draft-js'
+import {Editor, EditorState, RichUtils, getDefaultKeyBinding, convertToRaw} from 'draft-js'
 import 'draft-js/dist/Draft.css'
 import './RichEditor.css'
 import isElectron from 'is-electron'
@@ -72,6 +72,80 @@ var INLINE_STYLES = [
 		);
 	};
 
+	const SidePanelControl = (props) => {
+		const currentContent = props.editorState.getCurrentContent();
+		const currentDocumentDictionVal = props.editorState.documentDictionValue;
+		return (
+			<SidePanelControlButtons
+				content={currentContent}
+				documentDictionValue={currentDocumentDictionVal}
+				/>
+		)
+	}
+
+	class SidePanelControlButtons extends React.Component {
+		constructor() {
+			super();
+			this.AnalyzeDiction = this._AnalyzeDiction.bind(this);
+			this.HighlightDictionIssues = this._HighlightDictionIssues.bind(this);
+			this.AnalyzePacing = this._AnalyzePacing.bind(this);
+			this.HighlightPacingIssues = this._HighlightPacingIssues.bind(this);
+		}
+
+		_HighlightPacingIssues(e) {
+			e.preventDefault();
+		}
+
+		_AnalyzePacing(e) {
+			e.preventDefault();
+			window.ipcRenderer.send('pacing-analysis', 'Pacing')
+		}
+
+		_HighlightDictionIssues(e) {
+			e.preventDefault();
+			console.log('clicked');
+		}
+
+		_AnalyzeDiction(e) {
+			e.preventDefault();
+			let rawDat = convertToRaw(this.props.content).blocks;
+			let textRaw = rawDat.map(block => (!block.text.trim() && '\n') || block.text).join('\n');
+			let textRawArray = rawDat.map(block => (!block.text.trim() && '\n') || block.text);
+			let currentDictionVal = this.props.documentDictionValue;
+
+			let fullObj = [currentDictionVal, textRaw, textRawArray]
+			window.ipcRenderer.send('diction-analysis', fullObj);
+		}
+
+		render() {
+			let className = 'RichEditor-textoption';
+			return (
+				<div className="Side-controls">
+					<div className={className} onMouseDown={this.AnalyzeDiction}>
+						<span>
+							Analyze Diction
+						</span>
+					</div>
+					<div className={className}onMouseDown={this.HighlightDictionIssues}>
+						<span>
+						 Show Diction Conflicts
+						</span>
+					</div>
+					<div className={className}onMouseDown={this.AnalyzePacing}>
+						<span>
+						 Analyze Pacing
+						</span>
+					</div>
+					<div className={className} onMouseDown={this.HighlightPacingIssues}>
+						<span>
+						 Show Pacing Conflicts
+						</span>
+					</div>
+				</div>
+			)
+		}
+	}
+
 class StyleButton extends React.Component {
 	 constructor() {
 		 super();
@@ -98,7 +172,9 @@ class StyleButton extends React.Component {
 class TextEditor extends React.Component {
 	constructor(props) {
     super(props);
-		this.state = {editorState: EditorState.createEmpty()};
+		this.state = {editorState: EditorState.createEmpty(),
+									documentDictionValue: null
+								};
 	  this.focus = () => this.refs.editor.focus();
     this.onChange = (editorState) => this.setState({editorState});
     this.handleKeyCommand = this._handleKeyCommand.bind(this);
@@ -151,15 +227,13 @@ class TextEditor extends React.Component {
 		 }
 
 		 componentDidMount() {
-
 			 /* Just some tests for ipcRenderer functions (electron API) */
 			 	if (isElectron()) {
-					//console.log(window.ipcRenderer.sendSync('synchronous-message', 'ping')) // prints "pong"
 					window.ipcRenderer.on('asynchronous-reply', (event, arg) => {
-  					console.log("client: " + arg) // prints "pong"
+						console.log('main process is ready');
 						this.setState({ipc: true});
-					})
-					window.ipcRenderer.send('asynchronous-message', 'ping')
+					});
+					window.ipcRenderer.send('asynchronous-message', 'main process is ready')
 				}
 			}
 
@@ -172,20 +246,26 @@ class TextEditor extends React.Component {
         }
       }
     return (
-			<div className="TextEditor-root">
-				<div className="TextEditor-Toolbar-root">
-					<div className="TextEditor-BlockStyles-root">
-						<BlockStyleControls
-							editorState={editorState}
-							onToggle={this.toggleBlockType}
-						/>
-					</div>
-					<div className="TextEditor-InlineStyles-root">
-						<InlineStyleControls
-							editorState={editorState}
-							onToggle={this.toggleInlineStyle}
-						/>
-					</div>
+			<div className="TextEditor-root row">
+				<div className="col-md-2">
+					<SidePanelControl
+					editorState={editorState}
+					/>
+				</div>
+				<div className="col-md-10">
+					<div className="TextEditor-Toolbar-root">
+						<div className="TextEditor-BlockStyles-root">
+							<BlockStyleControls
+								editorState={editorState}
+								onToggle={this.toggleBlockType}
+							/>
+						</div>
+						<div className="TextEditor-InlineStyles-root">
+							<InlineStyleControls
+								editorState={editorState}
+								onToggle={this.toggleInlineStyle}
+							/>
+						</div>
 					</div>
 					<div className="TextEditor-Page-root" onClick={this.focus}>
 						<Editor
@@ -199,6 +279,7 @@ class TextEditor extends React.Component {
 							ref="editor"
 							spellCheck={true}
 						/>
+					</div>
 				</div>
 			</div>
     );
