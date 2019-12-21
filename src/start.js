@@ -7,6 +7,7 @@ const isDev = require('electron-is-dev')
 const BrowserWindow = electron.BrowserWindow
 const path = require('path')
 const natural = require('natural');
+const unique = require('array-unique');
 
 let mainWindow
 var wordTokenizer = new natural.WordTokenizer();
@@ -39,16 +40,48 @@ function getFullCorpus(array) {
 
 function getFrequencies(array) {
 	let obj = {};
-	for(var i = 0; i < array.length; i++) {
+	let full_arr = [];
+	for(let i = 0; i < array.length; i++) {
 		let element = array[i];
 		if(obj[element] !== undefined) {
-			obj[element] += 1;
+			obj[element][1] += 1;
 		} else {
-			obj[element] = 1;
+			obj[element] = [element, 1];
 		}
 	}
-	// SORT VALS HERE
-	return obj;
+	for(let i = 0; i < array.length; i++) {
+		let element = array[i];
+		let current_array = obj[element]
+		full_arr.push(current_array);
+	}
+	full_arr = full_arr.sort(compareSecondColumn);
+	full_arr = unique(full_arr).slice(0, 60);
+	return full_arr;
+}
+
+function getFeatureFreqs(p_array, f_array) {
+	let feature_freqs = [];
+	for(let i = 0; i < p_array.length; i++) {
+			feature_freqs[i] = {};
+			let overall = p_array[i].length;
+			let count = 0;
+			for(let x = 0; x < f_array.length; x++) {
+				if(p_array[i] === f_array[x][0]) {
+					count++;
+				}
+				// get counts of features in each para
+			}
+	}
+
+}
+
+function compareSecondColumn(a, b) {
+    if (a[1] === b[1]) {
+        return 0;
+    }
+    else {
+        return (a[1] > b[1]) ? -1 : 1;
+    }
 }
 
 function createWindow() {
@@ -91,7 +124,8 @@ ipcMain.on('diction-analysis', (event, arg) => {
 	var paragraph_text_tokens = getWorkTokens(clean_array_text);
 	var whole_corpus = getFullCorpus(paragraph_text_tokens);
 	var whole_corpus_freq_dist = getFrequencies(whole_corpus);
-	console.log(whole_corpus_freq_dist);
+	var feature_freqs = getFeatureFreqs(paragraph_text_tokens, whole_corpus_freq_dist);
+	console.log(feature_freqs);
 });
 
 ipcMain.on('pacing-analysis', (event, arg) => {
