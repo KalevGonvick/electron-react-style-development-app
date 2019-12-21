@@ -4,25 +4,16 @@ import 'draft-js/dist/Draft.css'
 import './RichEditor.css'
 import isElectron from 'is-electron'
 
-const styleMap = {
-	CODE: {
-		backgroundColor: 'rgba(0, 0, 0, 0.05)',
-		fontFamily: '"Inconsolata", "Menlo", "Consolas", monospace',
-		fontSize: 16,
-		padding: 2,
-	},
-};
-
 const BLOCK_TYPES = [
-	{label: 'H1', style: 'header-one'},
-	{label: 'H2', style: 'header-two'},
-	{label: 'H3', style: 'header-three'},
-	{label: 'H4', style: 'header-four'},
-	{label: 'H5', style: 'header-five'},
-	{label: 'H6', style: 'header-six'},
-	{label: 'Blockquote', style: 'blockquote'},
+	{label: 'H1', 						style: 'header-one'},
+	{label: 'H2', 						style: 'header-two'},
+	{label: 'H3', 						style: 'header-three'},
+	{label: 'H4', 						style: 'header-four'},
+	{label: 'H5', 						style: 'header-five'},
+	{label: 'H6', 						style: 'header-six'},
+	{label: 'Blockquote', 		style: 'blockquote'},
 	{label: 'Unordered-List', style: 'unordered-list-item'},
-	{label: 'Ordered-List', style: 'ordered-list-item'}
+	{label: 'Ordered-List', 	style: 'ordered-list-item'}
 ];
 
 const BlockStyleControls = (props) => {
@@ -48,11 +39,23 @@ const BlockStyleControls = (props) => {
 };
 
 var INLINE_STYLES = [
-	 {label: 'Bold', style: 'BOLD'},
-	 {label: 'Italic', style: 'ITALIC'},
-	 {label: 'Underline', style: 'UNDERLINE'},
-	 {label: 'Code-Block', style: 'CODE'},
+	 {label: 'Bold', 				style: 'BOLD'},
+	 {label: 'Italic',		 	style: 'ITALIC'},
+	 {label: 'Underline', 	style: 'UNDERLINE'},
+	 {label: 'Code-Block', 	style: 'CODE'},
  ];
+
+ const styleMap = {
+ 	CODE: {
+ 		backgroundColor: 'rgba(0, 0, 0, 0.05)',
+ 		fontFamily: '"Inconsolata", "Menlo", "Consolas", monospace',
+ 		fontSize: 16,
+ 		padding: 2,
+ 	},
+ 	ISSUE: {
+ 		backgroundColor: 'rgba(255, 242, 0, 0.25)'
+ 	}
+ };
 
 	const InlineStyleControls = (props) => {
 		const currentStyle = props.editorState.getCurrentInlineStyle();
@@ -109,11 +112,10 @@ var INLINE_STYLES = [
 		_AnalyzeDiction(e) {
 			e.preventDefault();
 			let rawDat = convertToRaw(this.props.content).blocks;
-			let textRaw = rawDat.map(block => (!block.text.trim() && '\n') || block.text).join('\n');
 			let textRawArray = rawDat.map(block => (!block.text.trim() && '\n') || block.text);
+			let textRawFull = textRawArray.join('\n');
 			let currentDictionVal = this.props.documentDictionValue;
-
-			let fullObj = [currentDictionVal, textRaw, textRawArray]
+			let fullObj = [currentDictionVal, textRawFull, textRawArray]
 			window.ipcRenderer.send('diction-analysis', fullObj);
 		}
 
@@ -172,9 +174,10 @@ class StyleButton extends React.Component {
 class TextEditor extends React.Component {
 	constructor(props) {
     super(props);
-		this.state = {editorState: EditorState.createEmpty(),
-									documentDictionValue: null
-								};
+		this.state = {
+			editorState: EditorState.createEmpty(),
+			documentDictionValue: null
+		};
 	  this.focus = () => this.refs.editor.focus();
     this.onChange = (editorState) => this.setState({editorState});
     this.handleKeyCommand = this._handleKeyCommand.bind(this);
