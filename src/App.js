@@ -1,5 +1,5 @@
 import React from 'react'
-import {Editor, EditorState, RichUtils, getDefaultKeyBinding, convertToRaw} from 'draft-js'
+import { Editor, EditorState, RichUtils, getDefaultKeyBinding, convertToRaw, Modifier, SelectionState} from 'draft-js'
 import 'draft-js/dist/Draft.css'
 import './RichEditor.css'
 import isElectron from 'is-electron'
@@ -112,11 +112,15 @@ var INLINE_STYLES = [
 		_AnalyzeDiction(e) {
 			e.preventDefault();
 			let rawDat = convertToRaw(this.props.content).blocks;
-			let textRawArray = rawDat.map(block => (!block.text.trim() && '\n') || block.text);
-			let textRawFull = textRawArray.join('\n');
-			let currentDictionVal = this.props.documentDictionValue;
-			let fullObj = [currentDictionVal, textRawFull, textRawArray]
-			window.ipcRenderer.send('diction-analysis', fullObj);
+			let paragraph_array = [];
+			let key_array = [];
+			for(let i = 0; i < rawDat.length; i++) {
+				if(rawDat[i]['text'] !== "") {
+					paragraph_array.push(rawDat[i]['text']);
+					key_array.push(rawDat[i]['key']);
+				}
+			}
+			window.ipcRenderer.send('diction-analysis', {"paragraph_array": paragraph_array, "key_array": key_array});
 		}
 
 		render() {
@@ -176,7 +180,8 @@ class TextEditor extends React.Component {
     super(props);
 		this.state = {
 			editorState: EditorState.createEmpty(),
-			documentDictionValue: null
+			documentDictionValue: null,
+			dictionStat: {}
 		};
 	  this.focus = () => this.refs.editor.focus();
     this.onChange = (editorState) => this.setState({editorState});
@@ -229,12 +234,30 @@ class TextEditor extends React.Component {
 			 );
 		 }
 
+		 _handleDictionReply(reply) {
+			 for(let i = 0; i < reply['paragraph_count']; i++) {
+				 // let currentContent = this.state.editorState.getCurrentContent();
+				 // let new_selection = SelectionState.createEmpty(reply['stats'][i][1]);
+				 // console.log(new_selection);
+				 // this.onChange(Modifier.applyInlineStyle(currentContent, new_selection, 'backgroundColor: rgba(255, 242, 0, 0.25)'))
+
+				 /* This is a hack solution until I find out how to change the styles of blocks by block key */
+				 let element = document.querySelector('[data-offset-key="' + reply['stats'][i][1] + '-0-0"]');
+				 element.style.backgroundColor = "rgba(255, 242, 0, 0.25)";
+
+			 }
+		 }
+
 		 componentDidMount() {
 			 /* Just some tests for ipcRenderer functions (electron API) */
 			 	if (isElectron()) {
 					window.ipcRenderer.on('asynchronous-reply', (event, arg) => {
 						console.log('main process is ready');
 						this.setState({ipc: true});
+					});
+
+					window.ipcRenderer.on('diction-reply', (event, arg) => {
+							this._handleDictionReply(arg);
 					});
 					window.ipcRenderer.send('asynchronous-message', 'main process is ready')
 				}
