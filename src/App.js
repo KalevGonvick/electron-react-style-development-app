@@ -77,11 +77,11 @@ var INLINE_STYLES = [
 
 	const SidePanelControl = (props) => {
 		const currentContent = props.editorState.getCurrentContent();
-		const currentDocumentDictionVal = props.editorState.documentDictionValue;
+		const currentDocumentDocumentVal = props.editorState.documentDocumentValue;
 		return (
 			<SidePanelControlButtons
 				content={currentContent}
-				documentDictionValue={currentDocumentDictionVal}
+				documentDocumentValue={currentDocumentDocumentVal}
 				/>
 		)
 	}
@@ -89,27 +89,11 @@ var INLINE_STYLES = [
 	class SidePanelControlButtons extends React.Component {
 		constructor() {
 			super();
-			this.AnalyzeDiction = this._AnalyzeDiction.bind(this);
-			this.HighlightDictionIssues = this._HighlightDictionIssues.bind(this);
-			this.AnalyzePacing = this._AnalyzePacing.bind(this);
-			this.HighlightPacingIssues = this._HighlightPacingIssues.bind(this);
+			this.AnalyzeDocument = this._AnalyzeDocument.bind(this);
 		}
 
-		_HighlightPacingIssues(e) {
-			e.preventDefault();
-		}
 
-		_AnalyzePacing(e) {
-			e.preventDefault();
-			window.ipcRenderer.send('pacing-analysis', 'Pacing')
-		}
-
-		_HighlightDictionIssues(e) {
-			e.preventDefault();
-			console.log('clicked');
-		}
-
-		_AnalyzeDiction(e) {
+		_AnalyzeDocument(e) {
 			e.preventDefault();
 			let rawDat = convertToRaw(this.props.content).blocks;
 			let paragraph_array = [];
@@ -120,31 +104,16 @@ var INLINE_STYLES = [
 					key_array.push(rawDat[i]['key']);
 				}
 			}
-			window.ipcRenderer.send('diction-analysis', {"paragraph_array": paragraph_array, "key_array": key_array});
+			window.ipcRenderer.send('document-analysis', {"paragraph_array": paragraph_array, "key_array": key_array});
 		}
 
 		render() {
 			let className = 'RichEditor-textoption';
 			return (
 				<div className="Side-controls">
-					<div className={className} onMouseDown={this.AnalyzeDiction}>
+					<div className={className} onMouseDown={this.AnalyzeDocument}>
 						<span>
-							Analyze Diction
-						</span>
-					</div>
-					<div className={className}onMouseDown={this.HighlightDictionIssues}>
-						<span>
-						 Show Diction Conflicts
-						</span>
-					</div>
-					<div className={className}onMouseDown={this.AnalyzePacing}>
-						<span>
-						 Analyze Pacing
-						</span>
-					</div>
-					<div className={className} onMouseDown={this.HighlightPacingIssues}>
-						<span>
-						 Show Pacing Conflicts
+							Analyze Document
 						</span>
 					</div>
 				</div>
@@ -180,8 +149,8 @@ class TextEditor extends React.Component {
     super(props);
 		this.state = {
 			editorState: EditorState.createEmpty(),
-			documentDictionValue: null,
-			dictionStat: {}
+			documentDocumentValue: null,
+			documentStat: {}
 		};
 	  this.focus = () => this.refs.editor.focus();
     this.onChange = (editorState) => this.setState({editorState});
@@ -234,15 +203,15 @@ class TextEditor extends React.Component {
 			 );
 		 }
 
-		 _handleDictionReply(reply) {
+		 _handleDocumentReply(reply) {
 			 for(let i = 0; i < reply['paragraph_count']; i++) {
 				 // let currentContent = this.state.editorState.getCurrentContent();
-				 // let new_selection = SelectionState.createEmpty(reply['stats'][i][1]);
+				 // let new_selection = SelectionState.createEmpty(reply['diction_stats'][i][1]);
 				 // console.log(new_selection);
 				 // this.onChange(Modifier.applyInlineStyle(currentContent, new_selection, 'backgroundColor: rgba(255, 242, 0, 0.25)'))
 
 				 /* This is a hack solution until I find out how to change the styles of blocks by block key */
-				 let element = document.querySelector('[data-offset-key="' + reply['stats'][i][1] + '-0-0"]');
+				 let element = document.querySelector('[data-offset-key="' + reply['diction_stats'][i][1] + '-0-0"]');
 				 element.style.backgroundColor = "rgba(255, 242, 0, 0.25)";
 
 			 }
@@ -256,8 +225,8 @@ class TextEditor extends React.Component {
 						this.setState({ipc: true});
 					});
 
-					window.ipcRenderer.on('diction-reply', (event, arg) => {
-							this._handleDictionReply(arg);
+					window.ipcRenderer.on('document-reply', (event, arg) => {
+							this._handleDocumentReply(arg);
 					});
 					window.ipcRenderer.send('asynchronous-message', 'main process is ready')
 				}

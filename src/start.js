@@ -1,22 +1,69 @@
-/* Main Process */
+/*
+* Author - Kalev Gonvick
+* Date - 12/20/2019
+* This is the main process where te NLP calculations are done.
+*/
 
+/* electron-start */
 const electron = require('electron')
 const app = electron.app
 const { ipcMain } = require('electron')
 const isDev = require('electron-is-dev')
 const BrowserWindow = electron.BrowserWindow
 const path = require('path')
+/* electron-end */
+
+/* natural-start */
 const natural = require('natural');
+const Analyzer = require('natural').SentimentAnalyzer;
+const stemmer = require('natural').PorterStemmer;
 const unique = require('array-unique');
+/* natural-end */
 
 let mainWindow
+/* tree bank tokenizer */
 var tbankTokenizer = new natural.TreebankWordTokenizer();
 
-/* Gets the tokens of each paragraph */
+/* sentence tokenizer */
+var sentenceTokenizer = new natural.SentenceTokenizer();
+
+/* sentiment analyzer */
+var analyzer = new Analyzer("English", stemmer, "afinn");
+
+/* function summary - tokenizes each sentence in each paragraph into a 3d array
+* @Param(array)  	  - array - an array of all paragraphs
+* @Return(array) 	  - para  - a 3d array containing the tokens of each sentence in each paragraph
+*/
+function getSentenceTokens(array) {
+
+	/* array of each paragraph */
+	var para = [];
+	for(let i = 0; i < array.length; i++) {
+		if(array[i] !== '\n') {
+
+			/* array of each sentence in token form */
+			let sen = []
+
+			/* tokenizes each paragraph by sentence */
+			let current_sentence = sentenceTokenizer.tokenize(array[i]);
+			for(let x = 0; x < current_sentence.length; x++) {
+
+				/* tokenizes each sentence by word */
+				sen.push(tbankTokenizer.tokenize(current_sentence[x]));
+			}
+			para.push(sen);
+		}
+	}
+	return para;
+}
+
+/* function summary - tokenizes each pargraph
+* @Param(array)  	  - array  - an array of all paragraphs
+* @Return(array) 	  - tokens - an array of all paragraphs in token form
+*/
 function getWordTokens(array) {
-	var arrLen = array.length;
 	var tokens = [];
-	for(var i = 0; i < arrLen; i++) {
+	for(var i = 0; i < array.length; i++) {
 
 		/* remove '\n' paragraphs */
 		if(array[i] !== '\n') {
@@ -26,7 +73,10 @@ function getWordTokens(array) {
 	return tokens;
 }
 
-/* Appends each paragraph into a single corpus */
+/* function summary - takes the tokenized paragraphs and pushes everything into a single array
+* @Param(array) 	  - array 		- the tokenized paragraphs
+* @Return(array) 	  - full_corp - a single array with all tokens
+*/
 function getFullCorpus(array) {
 	var full_corp = []
 
@@ -39,7 +89,45 @@ function getFullCorpus(array) {
 	return full_corp;
 }
 
-/* get the features of the full corpus */
+/* function summary - 		Returns the base sentiment of the overall document and each paragraph in object form.
+* @Param(array) 	  - 		paragraph_array 			- a 2d array that contains the tokens of each sentence in each paragraph.
+* @Return(object)   -	  paragraph_sentiments    - an object that contains the total sentiment average of the document as well as the sentiment average of each paragraph.
+*/
+function getSentiment(paragraph_array) {
+
+	/* Object Holding the paragraph sentiment values*/
+	let paragraph_sentiments = {};
+	paragraph_sentiments['paragraphs'] = {}
+	let total_avg = 0;
+
+	/* loop through each of the paragraphs */
+	for(let i = 0; i < paragraph_array.length; i++) {
+		let paragraph_avg = 0;
+		let current_paragraph = i;
+
+		/* loop through each sentence in each paragraph */
+		for(let x = 0; x < paragraph_array[i].length; x++) {
+			let temp_result = analyzer.getSentiment(paragraph_array[i][x]);
+			paragraph_avg += temp_result;
+			total_avg += temp_result;
+		}
+		paragraph_avg = paragraph_avg / paragraph_array[i].length;
+		paragraph_sentiments['paragraphs'][current_paragraph] = paragraph_avg;
+	}
+	total_avg = total_avg / paragraph_array.length;
+	paragraph_sentiments['whole_corpus_average'] = total_avg;
+	return paragraph_sentiments;
+}
+
+/**/
+//function getPacing(array) {
+	// TODO: analyze pacing of each sentence in each paragraph and get avg..
+//}
+
+/* function summary - gets the frequency of terms in the whole corpus and keeps the top 30
+*  @Param(array) - array - tokenized words of the entire document
+*  @Return(array) - full_arr - top 30 terms found in the document and their frequency count
+*/
 function getFeatures(array) {
 	let obj = {};
 	let full_arr = [];
@@ -67,7 +155,11 @@ function getFeatures(array) {
 	return full_arr;
 }
 
-/* get the frequency of features in each of the paragraphs */
+/* function summary - Get the frequency of features found in each paragraph indivudually
+* @Param(array) - p_array - the tokens of each paragraph
+* @Param(array) - f_array - an array of features in string form.
+* @Return(object) - feature_freqs - an object that contains the frequency average of each feature in each paragraph.
+*/
 function getFeatureFreqs(p_array, f_array) {
 	let feature_freqs = [];
 
@@ -93,6 +185,10 @@ function getFeatureFreqs(p_array, f_array) {
 	return feature_freqs;
 }
 
+/* function summary - takes in the longer array and simplfies it to a list on only names of the features.
+* @Param(array) - array - the long array containing stats
+* @Return(array) - the array returned only contains the names of the objects
+*/
 function getFeatureNameList(array) {
 	let nameList = []
 	for(let i = 0; i < array.length; i++) {
@@ -101,7 +197,12 @@ function getFeatureNameList(array) {
 	return nameList;
 }
 
-/* gets the mean and standard deviations of the paragraphs */
+/* function summary - gets the mean and standard deviation of the paragraph as a whole
+* @Param(array) 	- f_freqs 				- feature frequency array
+* @Param(array) 	- f_names 				- feature names array
+* @Param(array) 	- p_array 				- tokens of each paragraph
+* @Return(object) - corpus_features - the complete object containing the standard deviation and mean of each pargraph
+*/
 function getCorpusStats(f_freqs, f_names, p_array) {
 	var corpus_features = {};
 
@@ -117,7 +218,7 @@ function getCorpusStats(f_freqs, f_names, p_array) {
 		feature_average = feature_average / p_array.length
 		corpus_features[f_names[i]]['Mean'] = feature_average;
 
-		/* get standard deviation */
+		/* get standard deviation using 'mean' */
 		var feature_stdev = 0;
 		for(let x = 0; x < p_array.length; x++) {
 			let diff = f_freqs[x][f_names[i]] - corpus_features[f_names[i]]['Mean'];
@@ -130,7 +231,13 @@ function getCorpusStats(f_freqs, f_names, p_array) {
 	return corpus_features;
 }
 
-/* get the z-scores using mean and standard deviation */
+/* function summary - get the z scores of each paragraph
+* @Param(array) 	- f_freqs 				- feature frequency array
+* @Param(array) 	- f_names 				- feature names array
+* @Param(array) 	- p_array 				- tokens of each paragraph
+* @Param(object) 	- corpus_features - the object containing mean and stdev of each paragraph
+* @Return(array) -  feature_zscores - the zscores of each paragraph
+*/
 function getZScores(p_array, f_names, corpus_features, f_freqs) {
 	let feature_zscores = [];
 	for(let i = 0; i < p_array.length; i++) {
@@ -145,8 +252,14 @@ function getZScores(p_array, f_names, corpus_features, f_freqs) {
 	return feature_zscores;
 }
 
-/* get the paragraph that is the most differnt from them all */
-function getOutlier(z_scores, p_array, f_names, c_features, k_array) {
+/* function summary - gets the paragraph that differs the most
+* @Param(array) 	  - k_array 		- keys for each paragraph(used in draft-js as 'block' ids)
+* @Param(array) 	  - f_names 		- feature names array
+* @Param(array) 	  - p_array 		- tokens of each paragraph
+* @Param(array)		  - z_scores		- zscores for each pargraph
+* @Return(object)   - largestDiff	- returns the paragraphs that are the most differnt diction wise
+*/
+function getOutlier(k_array, z_scores, p_array, f_names) {
 
 	/* object that contains the paragraphs farthest paragraph delta value from it */
 	let largestDiff = {}
@@ -242,12 +355,15 @@ ipcMain.on('asynchronous-message', (event, arg) => {
 	event.reply('asynchronous-reply', 'pong')
 });
 
-ipcMain.on('diction-analysis', (event, arg) => {
+ipcMain.on('document-analysis', (event, arg) => {
 	var array_text = arg['paragraph_array'];
 	var array_key = arg['key_array'];
 
 	/* tokens of each paragraph */
 	var paragraph_text_tokens = getWordTokens(array_text);
+
+	/* tokens of each paragraph split by sentence */
+	var paragraph_sentence_tokens = getSentenceTokens(array_text);
 
 	/* all paragraphs in one */
 	var whole_corpus = getFullCorpus(paragraph_text_tokens);
@@ -276,15 +392,23 @@ ipcMain.on('diction-analysis', (event, arg) => {
 
 	/* calculate delta between paragraphs */
 	var outlierParagraph = getOutlier(
+		array_key,
 		feature_zscores,
 		paragraph_text_tokens,
 		feature_names,
-		corpus_features,
-		array_key
+		corpus_features
 	);
-	event.reply('diction-reply', {
-		"stats": outlierParagraph,
-		"paragraph_count": paragraph_text_tokens.length});
+
+	/* calculate the sentiment of each sentence in each paragraph */
+	var sentimentParagraph = getSentiment(paragraph_sentence_tokens);
+	console.log(sentimentParagraph);
+	/* get the pacing of each sentence in each paragraph */
+	//var pacingParagraph = getPacing(paragraph_sentence_tokens);
+	event.reply('document-reply', {
+		"diction_stats": outlierParagraph,
+		"sentiment_stats": sentimentParagraph,
+		"paragraph_count": paragraph_text_tokens.length
+	});
 });
 
 ipcMain.on('pacing-analysis', (event, arg) => {
