@@ -1,5 +1,5 @@
 import React from 'react'
-import { Editor, EditorState, RichUtils, getDefaultKeyBinding, convertToRaw, Modifier, SelectionState} from 'draft-js'
+import { Editor, EditorState, RichUtils, getDefaultKeyBinding, convertToRaw } from 'draft-js'
 import 'draft-js/dist/Draft.css'
 import './RichEditor.css'
 import isElectron from 'is-electron'
@@ -15,6 +15,10 @@ const BLOCK_TYPES = [
 	{label: 'Unordered-List', style: 'unordered-list-item'},
 	{label: 'Ordered-List', 	style: 'ordered-list-item'}
 ];
+
+const INTERPOLATION_STEPS = 6;
+const DICTION_START_YELLOW = 242;
+const DICTION_END_YELLOW = 44;
 
 const BlockStyleControls = (props) => {
 	const {editorState} = props;
@@ -51,9 +55,6 @@ var INLINE_STYLES = [
  		fontFamily: '"Inconsolata", "Menlo", "Consolas", monospace',
  		fontSize: 16,
  		padding: 2,
- 	},
- 	ISSUE: {
- 		backgroundColor: 'rgba(255, 242, 0, 0.25)'
  	}
  };
 
@@ -204,17 +205,23 @@ class TextEditor extends React.Component {
 		 }
 
 		 _handleDocumentReply(reply) {
-			 for(let i = 0; i < reply['paragraph_count']; i++) {
+			 for(let i = 0; i < reply['diction_stats'].length; i++) {
 				 // let currentContent = this.state.editorState.getCurrentContent();
 				 // let new_selection = SelectionState.createEmpty(reply['diction_stats'][i][1]);
 				 // console.log(new_selection);
 				 // this.onChange(Modifier.applyInlineStyle(currentContent, new_selection, 'backgroundColor: rgba(255, 242, 0, 0.25)'))
 
 				 /* This is a hack solution until I find out how to change the styles of blocks by block key */
-				 let element = document.querySelector('[data-offset-key="' + reply['diction_stats'][i][1] + '-0-0"]');
-				 element.style.backgroundColor = "rgba(255, 242, 0, 0.25)";
-
+				 let element = document.querySelector('[data-offset-key="' + reply['diction_stats'][i][2] + '-0-0"]');
+				 this.interpolate_colour(element, reply['paragraph_count'], reply['diction_stats'][i][1]);
 			 }
+		 }
+
+		 interpolate_colour(element, count, stepCount) {
+			 let stepFactor = 1 / (INTERPOLATION_STEPS - 1);
+			 let interpolation_step_mult = stepCount;
+			 let new_yellow = Math.round(DICTION_START_YELLOW + (stepFactor*interpolation_step_mult) * (DICTION_END_YELLOW - DICTION_START_YELLOW));
+			 element.style.backgroundColor = "rgba(255, " + new_yellow + ", 0, 0.25)";
 		 }
 
 		 componentDidMount() {

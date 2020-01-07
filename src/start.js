@@ -9,8 +9,8 @@ const electron = require('electron')
 const app = electron.app
 const { ipcMain } = require('electron')
 const isDev = require('electron-is-dev')
-const BrowserWindow = electron.BrowserWindow
-const path = require('path')
+const BrowserWindow = electron.BrowserWindow;
+const path = require('path');
 /* electron-end */
 
 /* natural-start */
@@ -20,7 +20,12 @@ const stemmer = require('natural').PorterStemmer;
 const unique = require('array-unique');
 /* natural-end */
 
+const PARAGRAPH_PERCENT_CONSTANT = 0.20;
+const DICTION_FEATURE_LIMIT = 30;
+
+/* window for electron app */
 let mainWindow
+
 /* tree bank tokenizer */
 var tbankTokenizer = new natural.TreebankWordTokenizer();
 
@@ -93,11 +98,11 @@ function getFullCorpus(array) {
 * @Param(array) 	  - 		paragraph_array 			- a 2d array that contains the tokens of each sentence in each paragraph.
 * @Return(object)   -	  paragraph_sentiments    - an object that contains the total sentiment average of the document as well as the sentiment average of each paragraph.
 */
-function getSentiment(paragraph_array) {
+function getDocumentSentiment(paragraph_array) {
 
 	/* Object Holding the paragraph sentiment values*/
 	let paragraph_sentiments = {};
-	paragraph_sentiments['paragraphs'] = {}
+	paragraph_sentiments['paragraph_sentiment'] = {}
 	let total_avg = 0;
 
 	/* loop through each of the paragraphs */
@@ -109,13 +114,13 @@ function getSentiment(paragraph_array) {
 		for(let x = 0; x < paragraph_array[i].length; x++) {
 			let temp_result = analyzer.getSentiment(paragraph_array[i][x]);
 			paragraph_avg += temp_result;
-			total_avg += temp_result;
 		}
 		paragraph_avg = paragraph_avg / paragraph_array[i].length;
-		paragraph_sentiments['paragraphs'][current_paragraph] = paragraph_avg;
+		paragraph_sentiments['paragraph_sentiment'][current_paragraph] = paragraph_avg;
+		total_avg += paragraph_avg;
 	}
 	total_avg = total_avg / paragraph_array.length;
-	paragraph_sentiments['whole_corpus_average'] = total_avg;
+	paragraph_sentiments['whole_corpus_sentiment_average'] = total_avg;
 	return paragraph_sentiments;
 }
 
@@ -151,7 +156,7 @@ function getFeatures(array) {
 
 	/* sort by the most freqeunt and take only the top 30 words */
 	full_arr = full_arr.sort(compareIndexValues);
-	full_arr = unique(full_arr).slice(0, 30);
+	full_arr = unique(full_arr).slice(0, DICTION_FEATURE_LIMIT);
 	return full_arr;
 }
 
@@ -259,10 +264,15 @@ function getZScores(p_array, f_names, corpus_features, f_freqs) {
 * @Param(array)		  - z_scores		- zscores for each pargraph
 * @Return(object)   - largestDiff	- returns the paragraphs that are the most differnt diction wise
 */
-function getOutlier(k_array, z_scores, p_array, f_names) {
+function getDictionOutlier(k_array, z_scores, p_array, f_names) {
 
-	/* object that contains the paragraphs farthest paragraph delta value from it */
-	let largestDiff = {}
+	/* contains the number of times the paragraph was pointed out as the outlier */
+	let occurence_count = {};
+
+	/* initiate all counts to 0 */
+	for(let x = 0; x < p_array.length; x++) {
+		occurence_count[x] = 0;
+	}
 
 	/* loop through each of the paragraphs as the selected 'test' case */
 	for(let i = 0; i < p_array.length; i++) {
@@ -291,24 +301,31 @@ function getOutlier(k_array, z_scores, p_array, f_names) {
 			}
 			delta = delta / f_names.length;
 
-			/* if the calculated delta is bigger than the last delta (or if its the first one calculated), then set that one as the largest */
+			/* if the calculated delta is bigger than the last delta (or if its the first one being checked), then set that one as the largest */
 			if(largest_paragraph_delta['delta'] !== -1) {
 				if(delta > largest_paragraph_delta['delta']) {
 					largest_paragraph_delta['paragraph'] = x;
-					largest_paragraph_delta['key'] = k_array[x];
 					largest_paragraph_delta['delta'] = delta;
 				}
 			} else {
 				largest_paragraph_delta['paragraph'] = x;
 				largest_paragraph_delta['delta'] = delta;
-				largest_paragraph_delta['key'] = k_array[x];
 			}
 		}
 
-		/* save each of the largest deltas for each paragraph on an object */
-		largestDiff[i] = [largest_paragraph_delta['paragraph'], largest_paragraph_delta['key']];
+		/* increment paragraph largest delta by 1*/
+		occurence_count[largest_paragraph_delta['paragraph']]++;
 	}
-	return largestDiff;
+
+	/* temp array for sorting the json object */
+	let occurence_count_values = [];
+	for(let i = 0; i < p_array.length; i++) {
+		let current_value = [i ,occurence_count[i], k_array[i]];
+		occurence_count_values.push(current_value);
+	}
+	occurence_count = occurence_count_values.sort(compareIndexValues);
+	occurence_count = occurence_count.slice(0, Math.ceil(p_array.length * PARAGRAPH_PERCENT_CONSTANT ))
+	return occurence_count;
 }
 
 /* compare index values for sorting */
@@ -375,7 +392,9 @@ ipcMain.on('document-analysis', (event, arg) => {
 	var feature_names = getFeatureNameList(features_list);
 
 	/* get the percentage of features in each pargraph */
-	var feature_freqs = getFeatureFreqs(paragraph_text_tokens, features_list);
+	var feature_freqs = getFeatureFreqs(
+		paragraph_text_tokens,
+		features_list);
 
 	/* calculate averages and standard deviations */
 	var corpus_features = getCorpusStats(
@@ -391,7 +410,7 @@ ipcMain.on('document-analysis', (event, arg) => {
 		feature_freqs);
 
 	/* calculate delta between paragraphs */
-	var outlierParagraph = getOutlier(
+	var dictionOutlierParagraph = getDictionOutlier(
 		array_key,
 		feature_zscores,
 		paragraph_text_tokens,
@@ -400,21 +419,17 @@ ipcMain.on('document-analysis', (event, arg) => {
 	);
 
 	/* calculate the sentiment of each sentence in each paragraph */
-	var sentimentParagraph = getSentiment(paragraph_sentence_tokens);
-	console.log(sentimentParagraph);
+	var sentimentOutlierParagraph = getDocumentSentiment(paragraph_sentence_tokens);
 	/* get the pacing of each sentence in each paragraph */
 	//var pacingParagraph = getPacing(paragraph_sentence_tokens);
+
+	/* send the reply back to the client */
 	event.reply('document-reply', {
-		"diction_stats": outlierParagraph,
-		"sentiment_stats": sentimentParagraph,
+		"diction_stats": dictionOutlierParagraph,
+		"sentiment_stats": sentimentOutlierParagraph,
 		"paragraph_count": paragraph_text_tokens.length
 	});
 });
-
-ipcMain.on('pacing-analysis', (event, arg) => {
-	console.log(arg);
-});
-
 
 app.on('activate', () => {
   if (mainWindow === null) {
